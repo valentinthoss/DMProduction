@@ -19,13 +19,13 @@ using LaTeXStrings
 
 #Loading the code...
 
-include("../Code/units.jl") #Units and definitions
-include("../Code/data.jl") #Data from BlackHawk, Constraints and others
-include("../Code/interpolation.jl") #Routines for interpolation
-include("../Code/cosmology.jl") #Cosmological background
-include("../Code/technical.jl")
-include("../Code/evaporation.jl") #Main module which contains the evaporation physics
-include("../Code/constraints.jl") #Functions to obtain constraints on f_PBH
+include("Code/units.jl") #Units and definitions
+include("Code/data.jl") #Data from BlackHawk, Constraints and others
+include("Code/interpolation.jl") #Routines for interpolation
+include("Code/cosmology.jl") #Cosmological background
+include("Code/technical.jl")
+include("Code/evaporation.jl") #Main module which contains the evaporation physics
+include("Code/constraints.jl") #Functions to obtain constraints on f_PBH
 include("parameters.jl") #Load the parameters for the scan
 
 
@@ -38,7 +38,11 @@ rc("axes",unicode_minus=false)
 rc("xtick",direction="in",top=true)
 rc("ytick",direction="in",right=true)
 rc("savefig",bbox="tight")
-ion()
+if display_plots
+    ion()
+else
+    ioff()
+end
 
 area = zeros(length(m0s))
 
@@ -132,8 +136,12 @@ for i=1:length(m0s)
     xlim(0,20)
     grid()
     xlabel(L"q = E/T_F")
-    show(false)
     savefig(string("Plots/",i,"_sc.png"))
+    if display_plots
+        show(false)
+    else
+        PyPlot.close()
+    end
     
     writedlm(string("Input/psd_",i,"_sc.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ1_class])
     
@@ -234,8 +242,12 @@ for i=1:length(m0s)
         xlim(0,20)
         grid()
         xlabel(L"q = E/T_F")
-        show(false)
         savefig(string("Plots/",i,"_mb.png"))
+        if display_plots
+            show(false)
+        else
+            PyPlot.close()
+        end
         
         writedlm(string("Input/psd_",i,"_mb.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ2_class])
     
@@ -294,7 +306,7 @@ for i=1:length(m0s)
     run(`./run.sh param.txt $(i)`)
 
     println("Computing area criterium...")
-    data_cdm = readdlm("Output/CDM00_pk.dat",skipstart=4)
+    data_cdm = readdlm("Data/CDM00_pk.dat",skipstart=4)
     data_pbh = readdlm(string("Output/",i,"_pk.dat"),skipstart=4)
     cdm_interp = linear_interpolation(log.(data_cdm[:,1]),log.(data_cdm[:,2].*data_cdm[:,1]))
     pbh_interp = linear_interpolation(log.(data_pbh[:,1]),log.(data_pbh[:,2].*data_pbh[:,1]));
@@ -318,7 +330,7 @@ writedlm("Output/area_crit.csv",[m0s ks qs bursts m_ncdms use_fits area])
 
 
 fig = figure()
-data_cdm = readdlm("Output/CDM00_pk.dat",skipstart=4)
+data_cdm = readdlm("Data/CDM00_pk.dat",skipstart=4)
 for i=1:length(m0s)
     data_pbh = readdlm(string("Output/",i,"_pk.dat"),skipstart=4)
     plot(data_pbh[:,1],data_pbh[:,2]./data_cdm[:,2],label=i)
@@ -330,4 +342,6 @@ grid()
 title("Transfer function")
 legend()
 savefig("Plots/transfer.png")
-show(true)
+if display_plots
+    show(true)
+end

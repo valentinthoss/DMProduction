@@ -617,7 +617,7 @@ function spectrum_redshift_instant(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_e
                 spec = spectrum_particle_e(e[i],m_half,s,g,a_bh_half;args...)
                 H = H_a.(a_space)
                 y = spec./H./a_space
-                Φ[i] += abs(trapz(a_space,y))
+                Φ2[i] += abs(trapz(a_space,y))
             end
             
         elseif abs(m_half-m_fin)/(m_half) < 1e-1
@@ -694,16 +694,16 @@ function spectrum_redshift_instant(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_e
     end
 end
 
-function spectrum_redshift_approximation(x,t_start,t_end,a=1.39077e-5,b=-0.0873,c=0.05660,d=0.71195)
-    x0 = 3.7*sqrt(t_start/t_end)
-    if x > x0
-        return  a*(x + b*x^2 + c*x^3) / (exp(d*x) + 1)
-    else
-        return (x/x0)^1.93 * 8e-6 * x0
-    end
-end
+#function spectrum_redshift_approximation(x,t_start,t_end,a=1.39077e-5,b=-0.0873,c=0.05660,d=0.71195)
+#    x0 = 3.7*sqrt(t_start/t_end)
+#    if x > x0
+#        return  a*(x + b*x^2 + c*x^3) / (exp(d*x) + 1)
+#    else
+#        return (x/x0)^1.93 * 8e-6 * x0
+#    end
+#end
 
-function spectrum_redshift_approximation2(x,t_start,t_end,a,b,c,d,e)
+function spectrum_redshift_approximation(x,t_start,t_end,a,b,c,d,e)
     x0 = 0*sqrt(t_start/t_end)
     if x > x0
         return a*(x + b*x^2 + c*x^3) / (exp(d*x) + e)

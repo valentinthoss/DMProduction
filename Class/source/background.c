@@ -1259,7 +1259,7 @@ int background_ncdm_distribution(
 
   /** - b) deal now with case of reading analytical function */
   else{
-    *f0 = param[0]*(q + param[1]*pow(q,2) + param[2]*pow(q,3)) / (exp(param[3]*q) + param[4]);
+    *f0 = param[n_ncdm*5+0]*(q + param[n_ncdm*5+1]*pow(q,2) + param[n_ncdm*5+2]*pow(q,3)) / (exp(param[n_ncdm*5+3]*q) + param[n_ncdm*5+4]);
   }
 
   return _SUCCESS_;

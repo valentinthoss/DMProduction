@@ -1,3 +1,5 @@
+display_plots = true #Whether to open Plots during the computatin. If false, then they are still saved as files in any case.
+
 #BLACK HOLE PARAMETERS
 
 m0s = [1e1,1e1,1e1,1e1] #BH mass in gram

@@ -1259,66 +1259,7 @@ int background_ncdm_distribution(
 
   /** - b) deal now with case of reading analytical function */
   else{
-    /**
-       Next enter your analytic expression(s) for the p.s.d.'s. If
-       you need different p.s.d.'s for different species, put each
-       p.s.d inside a condition, like for instance: if (n_ncdm==2)
-       {*f0=...}.  Remember that n_ncdm = 0 refers to the first
-       species.
-    */
-
-    /**************************************************/
-    /*    FERMI-DIRAC INCLUDING CHEMICAL POTENTIALS   */
-    /**************************************************/
-
-    *f0 = 1.0/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
-
-    /**************************************************/
-
-    /** This form is only appropriate for approximate studies, since in
-        reality the chemical potentials are associated with flavor
-        eigenstates, not mass eigenstates. It is easy to take this into
-        account by introducing the mixing angles. In the later part
-        (not read by the code) we illustrate how to do this. */
-
-    if (_FALSE_) {
-
-      /* We must use the list of extra parameters read in input, stored in the
-         ncdm_psd_parameter list, extracted above from the structure
-         and now called param[..] */
-
-      /* check that this list has been read */
-      class_test(param == NULL,
-                 pba->error_message,
-                 "Analytic expression wants to use 'ncdm_psd_parameters', but they have not been entered!");
-
-      /* extract values from the list (in this example, mixing angles) */
-      double square_s12=param[0];
-      double square_s23=param[1];
-      double square_s13=param[2];
-
-      /* infer mixing matrix */
-      double mixing_matrix[3][3];
-      int i;
-
-      mixing_matrix[0][0]=pow(fabs(sqrt((1-square_s12)*(1-square_s13))),2);
-      mixing_matrix[0][1]=pow(fabs(sqrt(square_s12*(1-square_s13))),2);
-      mixing_matrix[0][2]=fabs(square_s13);
-      mixing_matrix[1][0]=pow(fabs(sqrt((1-square_s12)*square_s13*square_s23)+sqrt(square_s12*(1-square_s23))),2);
-      mixing_matrix[1][1]=pow(fabs(sqrt(square_s12*square_s23*square_s13)-sqrt((1-square_s12)*(1-square_s23))),2);
-      mixing_matrix[1][2]=pow(fabs(sqrt(square_s23*(1-square_s13))),2);
-      mixing_matrix[2][0]=pow(fabs(sqrt(square_s12*square_s23)-sqrt((1-square_s12)*square_s13*(1-square_s23))),2);
-      mixing_matrix[2][1]=pow(sqrt((1-square_s12)*square_s23)+sqrt(square_s12*square_s13*(1-square_s23)),2);
-      mixing_matrix[2][2]=pow(fabs(sqrt((1-square_s13)*(1-square_s23))),2);
-
-      /* loop over flavor eigenstates and compute psd of mass eigenstates */
-      *f0=0.0;
-      for (i=0;i<3;i++) {
-
-        *f0 += mixing_matrix[i][n_ncdm]*1.0/pow(2*_PI_,3)*(1./(exp(q-pba->ksi_ncdm[i])+1.) +1./(exp(q+pba->ksi_ncdm[i])+1.));
-
-      }
-    } /* end of region not used, but shown as an example */
+    *f0 = param[0]*(q + param[1]*pow(q,2) + param[2]*pow(q,3)) / (exp(param[3]*q) + param[4]);
   }
 
   return _SUCCESS_;

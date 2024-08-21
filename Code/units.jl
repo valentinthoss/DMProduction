@@ -1,0 +1,19 @@
+#Units
+const cm_to_kpc = 3.241e-22
+const g_to_GeV = 5.60958884e23
+const g_to_Msol = 5.03e-34
+const s_to_1_GeV = 1.519267407e24
+const K_to_GeV = 8.61733063e-14
+const deg_to_rad = pi/180
+const GeV_to_1_s = s_to_1_GeV 
+const GeV_to_g = 1/g_to_GeV
+const GeV_to_K = 1/K_to_GeV
+const kpc_to_cm = 1/cm_to_kpc
+const Msol_to_g = 1/g_to_Msol
+const rad_to_deg = 180/pi
+const hbar = 6.582e-25 #Hbar in GeV*s
+const c = 29979245800. #Speed of light in cm/s
+const mp = 2.17645e-5 #Planck mass in gram
+const msol = 2e33 #Solar mass in gram
+const meq = 2.8e17*msol #Hubble mass at equality in grams
+const G = 6.67e-8 #Gravitational constant in cgs

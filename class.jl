@@ -48,6 +48,8 @@ area = zeros(length(m0s))
 pbhini = open("PBH.ini")
 pbh_ini_string = read(pbhini,String)
 close(pbhini)
+run(`mkdir -p Plots`)
+run(`mkdir -p Output`)
 
 for i=1:length(m0s)
 

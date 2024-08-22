@@ -2,7 +2,6 @@
 # STILL MISSING
 #
 # - Radiation Domination (beta > beta_c)
-# - Two stages (how does it work?)
 # - Mass functions
 ###################################################
 
@@ -45,6 +44,10 @@ else
 end
 
 area = zeros(length(m0s))
+    
+pbhini = open("PBH.ini")
+pbh_ini_string = read(pbhini,String)
+close(pbhini)
 
 for i=1:length(m0s)
 
@@ -251,59 +254,52 @@ for i=1:length(m0s)
         
         writedlm(string("Input/psd_",i,"_mb.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ2_class])
     
-        push!(parameters,"NNCDM")
-        push!(parameters,2)
-        push!(parameters,"DEGNCDM")
-        push!(parameters,"1,1")
-        push!(parameters,"MNCDM")
-        push!(parameters,string(m_ncdm*1e9,",",m_ncdm*1e9))
-        push!(parameters,"TNCDM")
-        push!(parameters,string(T_ncdm,",",T_ncdm2))
-        push!(parameters,"OMEGANCDM")
-        push!(parameters,string(Ω1,",",Ω2))
-        push!(parameters,"OMEGACDM")
-        push!(parameters,Ω_dm-Ω1-Ω2)
-        push!(parameters,"FITPARAMS")
-        push!(parameters,string(fit[1][1],",",fit[1][2],",",fit[1][3],",",fit[1][4],",",fit[1][5]))
-        push!(parameters,"PSDFILE")
-        push!(parameters,string("../Input/psd_",i,"_sc.dat,../Input/psd_",i,"_mb.dat"))
+        push!(parameters,"NNCDM"=>"2")
+        push!(parameters,"DEGNCDM"=>"1,1")
+        push!(parameters,"MNCDM"=>string(m_ncdm*1e9,",",m_ncdm*1e9))
+        push!(parameters,"TNCDM"=>string(T_ncdm,",",T_ncdm2))
+        push!(parameters,"OMEGANCDM"=>string(Ω1,",",Ω2))
+        push!(parameters,"OMEGACDM"=>string(Ω_dm-Ω1-Ω2))
+        push!(parameters,"FITPARAMS"=>string(fit[1][1],",",fit[1][2],",",fit[1][3],",",fit[1][4],",",fit[1][5],
+    ",",fit2[1][1],",",fit2[1][2],",",fit2[1][3],",",fit2[1][4],",",fit2[1][5]))
+        push!(parameters,"PSDFILE"=>string("../Input/psd_",i,"_sc.dat,../Input/psd_",i,"_mb.dat"))
         println("Using psd file")
-        push!(parameters,"USEFILE")
-        push!(parameters,"1,1")
-    else
-        push!(parameters,"NNCDM")
-        push!(parameters,1)
-        push!(parameters,"DEGNCDM")
-        push!(parameters,1)
-        push!(parameters,"MNCDM")
-        push!(parameters,m_ncdm*1e9)
-        push!(parameters,"TNCDM")
-        push!(parameters,T_ncdm)
-        push!(parameters,"OMEGANCDM")
-        push!(parameters,Ω1)
-        push!(parameters,"OMEGACDM")
-        push!(parameters,Ω_dm-Ω1)
-        push!(parameters,"FITPARAMS")
-        push!(parameters,string(fit[1][1],",",fit[1][2],",",fit[1][3],",",fit[1][4],",",fit[1][5]))
-        push!(parameters,"PSDFILE")
-        push!(parameters,string("../Input/psd_",i,"_sc.dat"))
         if use_fit
             println("Using fit")
-            push!(parameters,"USEFILE")
-            push!(parameters,0)
+            push!(parameters,"USEFILE"=>"0,0")
         else
             println("Using psd file")
-            push!(parameters,"USEFILE")
-            push!(parameters,1)
+            push!(parameters,"USEFILE"=>"1,1")
+        end
+    else
+        push!(parameters,"NNCDM"=>"1")
+        push!(parameters,"DEGNCDM"=>"1")
+        push!(parameters,"MNCDM"=>string(m_ncdm*1e9))
+        push!(parameters,"TNCDM"=>string(T_ncdm))
+        push!(parameters,"OMEGANCDM"=>string(Ω1))
+        push!(parameters,"OMEGACDM"=>string(Ω_dm-Ω1))
+        push!(parameters,"FITPARAMS"=>string(fit[1][1],",",fit[1][2],",",fit[1][3],",",fit[1][4],",",fit[1][5]))
+        push!(parameters,"PSDFILE"=>string("../Input/psd_",i,"_sc.dat"))
+        if use_fit
+            println("Using fit")
+            push!(parameters,"USEFILE"=>"0")
+        else
+            println("Using psd file")
+            push!(parameters,"USEFILE"=>"1")
         end
     end
+
+    push!(parameters,"OUTPUTNAME"=>string(i))
     
     println()
     println("Running CLASS...")
 
-    writedlm("param.txt",parameters)
-    
-    run(`./run.sh param.txt $(i)`)
+    pbh_ini_string_mod = replace(pbh_ini_string,parameters...)
+    open(string("Input/PBH_",i,".ini"), "w") do file
+        write(file,pbh_ini_string_mod)
+    end
+
+    run(`./run.sh $(i)`)
 
     println("Computing area criterium...")
     data_cdm = readdlm("Data/CDM00_pk.dat",skipstart=4)

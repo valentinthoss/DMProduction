@@ -269,14 +269,14 @@ function hdm_secondary(nij,e,x,e_sec,m,part_fin="Photon",a=0)
     return sec
 end
 
-function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a_start=nothing,a_end=nothing,k=0,burst=true,q=0.5,n_steps=1000,sec=false,h="select",a_rel=0.1,go=false,instant=false,split_flux=false,rd=false)
+function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a_start=nothing,a_end=nothing,k=0,burst=true,q=0.5,n_steps=1000,sec=false,h="select",a_rel=0.1,go=false,instant=false,split_flux=false,md=false)
     
     args = (m_init=m_init,k=k,burst=burst,q=q,sec=sec,h=h,go=go)
                             
     tail = false
     
     if instant
-        return spectrum_redshift_instant(e,m_init,s,g,a_bh;t_start=t_start,t_end=t_end,a_start=a_start,a_end=a_end,n_steps=n_steps,a_rel=a_rel,k=k,burst=burst,q=q,sec=sec,h=h,go=go,split_flux=split_flux,rd=rd)
+        return spectrum_redshift_instant(e,m_init,s,g,a_bh;t_start=t_start,t_end=t_end,a_start=a_start,a_end=a_end,n_steps=n_steps,a_rel=a_rel,k=k,burst=burst,q=q,sec=sec,h=h,go=go,split_flux=split_flux,md=md)
     end
     
     m_start, a_bh_start = bh_mass_t(m_init,t_start,a_bh,k=k,burst=burst,q=q,return_spin=true)
@@ -285,9 +285,9 @@ function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a
     if m_fin < m_init*1e-5
         t_fin = bh_lifetime_estimate(m_init,a_bh,k=k,burst=burst,q=q)
         a_fin = t_to_a_fast(t_fin)
-        if !sec && burst
+        if (!sec && burst) || (!sec && k == 0)
             tail = true
-            e_tail = 1e17/(q*m_init)/(t_to_a_fast(t_end)/a_fin)
+            e_tail = 1e17/(m_init)/(t_to_a_fast(t_end)/a_fin)
             m_fin = 1e13/(e_tail*t_to_a_fast(t_end)/a_fin)
         else
             m_fin = minimum([1e10/(maximum(e)*t_to_a_fast(t_end)/a_fin),m_init*1e-5])
@@ -349,7 +349,11 @@ function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a
 
         if abs(m_start-m_half)/(m_start) < 0.1
             t_space = 10 .^ LinRange(log10(t_start),log10(t_half),n_steps)
-            a_space = t_to_a_fast.(t_space)
+            if !md
+                a_space = t_to_a_fast.(t_space)
+            else
+                a_space = (t_space/t_end).^(2/3)*a_fin
+            end
             M_space, a_bh_space = bh_mass_t_vec(m_init,t_space,a_bh,return_spin=true)
 
             Threads.@threads for i=1:length(e)
@@ -368,7 +372,11 @@ function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a
 
             t_crit = bh_lifetime_estimate(m_init,a_bh,m_fin=m_start-0.1*(m_start-m_half))
             t_space = 10 .^ LinRange(log10(t_start),log10(t_crit),n_steps)
-            a_space = t_to_a_fast.(t_space)
+            if !md
+                a_space = t_to_a_fast.(t_space)
+            else
+                a_space = (t_space/t_end).^(2/3)*a_fin
+            end
 
             if a_bh > 0.0
                 M_space, a_bh_space = bh_mass_t_vec(m_init,t_space,a_bh,return_spin=true)
@@ -385,7 +393,11 @@ function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a
             
             M_space = 10 .^ LinRange(log10(m_half),log10(M_space[end]),n_steps)
             t_space = broadcast(x->bh_lifetime_estimate(m_init,a_bh,m_fin=x),M_space)
-            a_space = t_to_a_fast.(t_space)
+            if !md
+                a_space = t_to_a_fast.(t_space)
+            else
+                a_space = (t_space/t_end).^(2/3)*a_fin
+            end
 
             Threads.@threads for i=1:i_tail
                 spec = spectrum_particle_e(e[i] * a_end ./ a_space,M_space,s,g,a_bh_space,sec=sec,h=h,go=go)./mass_loss_rate.(M_space,a_bh_space)
@@ -496,7 +508,7 @@ function spectrum_redshift(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a
     end
 end
                         
-function spectrum_redshift_instant(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a_start=nothing,a_end=nothing,k=0,burst=true,q=0.5,n_steps=1000,sec=false,h="select",a_rel=0.01,go=false,split_flux=false,rd=false)
+function spectrum_redshift_instant(e,m_init,s=1.0,g=2.0,a_bh=0;t_start=t_rec,t_end=t_0,a_start=nothing,a_end=nothing,k=0,burst=true,q=0.5,n_steps=1000,sec=false,h="select",a_rel=0.01,go=false,split_flux=false,md=false)
     
     args = (m_init=m_init,k=k,burst=burst,q=q,sec=sec,h=h,go=go)
     
@@ -707,6 +719,15 @@ function spectrum_redshift_approximation(x,t_start,t_end,a,b,c,d,e)
     x0 = 0*sqrt(t_start/t_end)
     if x > x0
         return a*(x + b*x^2 + c*x^3) / (exp(d*x) + e)
+    else
+        return (x/x0)^1.93 * 1.808e-6 * x0
+    end
+end
+
+function spectrum_redshift_approximation_burst(x,t_start,t_end,a,b,c,d,e)
+    x0 = 0*sqrt(t_start/t_end)
+    if x > x0
+        return a*(x + b*x^2 + c*x^3) / (d + e*x^6)
     else
         return (x/x0)^1.93 * 1.808e-6 * x0
     end

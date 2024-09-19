@@ -1179,25 +1179,40 @@ function constraint_β_bbn(m_init;burden=false)
     end
 end
     
-function constraint_f_bbn(m_init;burden=false)
-    return f_βm.(constraint_β_bbn(m_init,burden=burden),m_init)
+function constraint_f_bbn(m_init;burden=false,k=0,q=0.5,burst=false,τ=[5e2,5e12],second_stage=false)
+    if !second_stage
+        return f_βm.(constraint_β_bbn(m_init,burden=burden),m_init)
+    else
+        τ_mb = bh_lifetime_estimate.(m_init,k=k,q=q,burst=burst)
+        τ_sc = bh_lifetime_estimate.(m_init)
+        f_bbn = zeros(length(m_init))
+        Threads.@threads for i=1:length(m_init)
+            if τ_mb[i]>τ[2]
+                f_bbn[i] = f_βm(constraint_β_bbn(m_init[i],burden=true),m_init[i])
+            elseif τ_sc[i]>τ[1]
+                f_bbn[i] = f_βm(constraint_β_bbn(m_init[i],burden=false),m_init[i])
+            elseif τ_mb[i]<τ[1]
+                f_bbn[i] = Inf
+            else
+                f_bbn[i] = 1e-4
+            end
+        end
+        return f_bbn
+    end
 end
 
-function constraint_f_bbn_ext(m_init;burden=false,mass_function=lognormal(),m_int=(-2,2,100),fast=true)
-    return f_βm.(constraint_β_bbn(m_init,burden=burden),m_init)
-end
 
-function constraint_f_bbn_ext(m;burden=false,mass_function=lognormal(),m_range=(0,20,1000),rescale=false)
+function constraint_f_bbn_ext(m;burden=false,k=0,q=0.5,burst=false,second_stage=false,mass_function=lognormal(),m_range=(0,20,1000),rescale=false)
 
     m_init = 10 .^ LinRange(m_range[1],m_range[2],m_range[3])
     i_t = nothing
     
     if rescale
-        m_init_init = get_m_init.(m_init,t_0)
-        dm = grad_m_m0(m_init,m_init_init,0.5,0,true)
+        m_init_init = get_m_init.(m_init,t_0,k=k,q=q,burst=burst)
+        dm = grad_m_m0(m_init,m_init_init,q,k,burst)
     end
 
-    f_PBH_mc = constraint_f_bbn(m_init,burden=burden)
+    f_PBH_mc = constraint_f_bbn(m_init,burden=burden,second_stage=second_stage,k=k,burst=burst,q=q)
     f_PBH = zeros(length(m))
 
     Threads.@threads for j=1:length(m)
@@ -1215,16 +1230,41 @@ function constraint_f_bbn_ext(m;burden=false,mass_function=lognormal(),m_range=(
     return f_PBH
 end
 
-function constraint_k_bbn(m_init,k_space;f_target=1,return_f=true,return_k=true,burden=false)
+function constraint_k_bbn(m,k_space;burden=false,q=0.5,burst=false,second_stage=false,f_target=1,return_f=true,return_k=true)
 
-    f_PBH = constraint_f_bbn(m_init,burden=burden) * ones(length(k_space))'
-    k_PBH = zeros(length(m_init))
-
-    Threads.@threads for i=1:length(m_init)
-        if f_PBH[i,1] < f_target
-            k_PBH[i] = Inf
-        else
-            k_PBH[i] = 0.0
+    if !second_stage
+        f_PBH = constraint_f_bbn(m,burden=burden,second_stage=second_stage) * ones(length(k_space))'
+    else
+        f_PBH = zeros(length(m),length(k_space))
+        Threads.@threads for i=1:length(k_space)
+            f_PBH[:,i] = constraint_f_bbn(m,burden=burden,k=k_space[i],q=q,burst=burst,second_stage=second_stage)
+        end
+    end
+    
+    k_PBH = zeros(length(m))
+    if !second_stage && return_k
+        Threads.@threads for i=1:length(m)
+            if f_PBH[i,1] < f_target
+                k_PBH[i] = Inf
+            else
+                k_PBH[i] = 0.0
+            end
+        end
+    elseif return_k
+        Threads.@threads for i=1:length(m)
+            ind = findlast(x->x<f_target,f_PBH[i,:])
+            if !isnothing(ind)
+                if ind < length(k_space)
+                    k_min = k_space[ind]
+                    k_max = k_space[ind+1]
+                    f(x) = constraint_f_bbn(m[i],k=x,burst=burst,q=q,second_stage=second_stage)[1] - f_target
+                    k_PBH[i] = find_zero(f,(k_min,k_max))    
+                else
+                    k_PBH[i] = Inf
+                end
+            else
+                k_PBH[i] = 0.0
+            end
         end
     end
 
@@ -1237,16 +1277,42 @@ function constraint_k_bbn(m_init,k_space;f_target=1,return_f=true,return_k=true,
     end
 end
 
-function constraint_k_bbn_ext(m,k_space;burden=false,return_f=true,return_k=true,f_target=1,mass_function=lognormal(),m_range=(0,20,1000),rescale=false)
+function constraint_k_bbn_ext(m,k_space;burden=false,second_stage=false,return_f=true,return_k=true,f_target=1,mass_function=lognormal(),m_range=(0,20,1000),rescale=false)
 
-    f_PBH = constraint_f_bbn_ext(m,burden=burden,mass_function=mass_function,m_range=m_range,rescale=rescale) * ones(length(k_space))'
+    if !second_stage
+        f_PBH = constraint_f_bbn_ext(m,burden=burden,second_stage=second_stage,mass_function=mass_function,m_range=m_range,rescale=rescale) * ones(length(k_space))'
+    else
+        f_PBH = zeros(length(m),length(k_space))
+        Threads.@threads for i=1:length(k_space)
+            f_PBH[:,i] = constraint_f_bbn_ext(m,burden=burden,k=k_space[i],q=q,burst=burst,second_stage=second_stage,mass_function=mass_function,m_range=m_range,rescale=rescale)
+        end
+    end
+
     k_PBH = zeros(length(m))
     
-    Threads.@threads for i=1:length(m)
-        if f_PBH[i,1] < f_target
-            k_PBH[i] = Inf
-        else
-            k_PBH[i] = 0.0
+    if !second_stage && return_k
+        Threads.@threads for i=1:length(m)
+            if f_PBH[i,1] < f_target
+                k_PBH[i] = Inf
+            else
+                k_PBH[i] = 0.0
+            end
+        end
+    elseif return_k
+        Threads.@threads for i=1:length(m)
+            ind = findlast(x->x<f_target,f_PBH[i,:])
+            if !isnothing(ind)
+                if ind < length(k_space)
+                    k_min = k_space[ind]
+                    k_max = k_space[ind+1]
+                    f(x) = constraint_f_bbn_ext(m[i],k=x,burst=burst,q=q,second_stage=second_stage,mass_function=mass_function,m_range=m_range,rescale=rescale)[1] - f_target
+                    k_PBH[i] = find_zero(f,(k_min,k_max))    
+                else
+                    k_PBH[i] = Inf
+                end
+            else
+                k_PBH[i] = 0.0
+            end
         end
     end
 

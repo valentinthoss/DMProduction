@@ -63,61 +63,144 @@ for i=1:length(m0s)
     use_fit = use_fits[i]
 
     println()
+    println()
     println("m=",m0,"g, q=",q,", k=",k,", burst=",burst,", m_dm=",m_ncdm," GeV")
-    println("First stage")
-
+    
     T0 = bh_temp(m0)
 
     e = 10 .^ LinRange(log10(T0*q_min),log10(T0*q_max),n_e)
     e_class = 10 .^ LinRange(log10(T0*q_min_class),log10(T0*q_max_class),n_e_class)
 
     t_start = bh_formation(m0)
-    t_end = bh_lifetime_estimate(m0,a_bh,m_fin=q*m0)
+    if k > 0
+        t_end = bh_lifetime_estimate(m0,a_bh,m_fin=q*m0)
+    else
+        t_end = bh_lifetime_estimate(m0,a_bh)
+    end
+    #t_end = bh_lifetime_estimate(m0,a_bh,k=k,burst=burst,q=q)
+    
+    β_c = t_to_a(t_start)/t_to_a(t_end)
+    
+    if isnothing(md)
+        if !isnothing(β)
+            β_comp = β
+        elseif !isnothing(f)
+            β_comp = β_fm(f_comp,m0)
+        else
+            if burst
+                N_approx = 2.85e-2*m0^2/mp^2
+            else
+                N_approx = 2.85e-2*m0^2/mp^2 * (1+q^2)
+            end
+            f_comp = Ω_ncdm * m0 / (N_approx * m_ncdm * GeV_to_g * Ω_dm)
+            β_comp = β_fm(f_comp,m0)
+        end
+        if β_comp > β_c
+            md_comp = true
+        else
+            md_comp = false
+        end
+    else
+        md_comp = md
+    end
+    
+    println()
+    println("Matter domination: ",md_comp)
+    println()
+    println("First stage")
 
     a_end = t_to_a(t_end)
+    #a_end = 2.2e-31 * (m0/mp)^(3/2)
     #a_end_approx = 3.33e-31 * (1-q^3)^(1/2)*(m0/mp)^(3/2)
     #println("aev_1 ",abs(1-a_end/a_end_approx))
+    if md_comp
+        a_end = a_end*(9/16)^(1/4)
+    end
     
     T_ncdm = T0*GeV_to_K/2.7255*a_end
     println("T_ncdm ",T_ncdm)
-    #T_ncdm_approx = 0.69054 * (1-q^3)^(1/2) *(m0/mp)^(1/2)
+    #T_ncdm_approx = 0.69054 * (1-0*q^3)^(1/2) *(m0/mp)^(1/2)
+    #println("T_ncdm_approx ",T_ncdm_approx)
+    
 
+    
     Φ1, Φ2 = spectrum_redshift(e,m0,s,g,a_bh,
-        t_start=t_start,t_end=t_end,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true)
+        t_start=t_start,t_end=t_end,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true,md=md_comp)
     Φ1_class, Φ2_class = spectrum_redshift(e_class,m0,s,g,a_bh,
-        t_start=t_start,t_end=t_end,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true)
-
+        t_start=t_start,t_end=t_end,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true,md=md_comp)
+    
     N1 = trapz(e,Φ1)
+    println(N1)
     #N1_approx = 2.85e-2*m0^2/mp^2*(1-q^2)
     #println("N_1 ",abs(1-N1/N1_approx))
     
     if !isnothing(β)
-        Ω1 = N1 * m_ncdm * GeV_to_g * 0.26 * f_βm(β,m0) / m0
-        Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * 0.26 * f_βm(β,m0) * (1 - q^2)
-        println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
+        if β < β_c
+            Ω1 = N1 * m_ncdm * GeV_to_g * Ω_dm * f_βm(β,m0) / m0
+            if k > 0
+                Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * Ω_dm * f_βm(β,m0) * (1 - q^2)
+            else
+                Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * Ω_dm * f_βm(β,m0)
+            end
+            #println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
+        else
+            Ω1 = Ω_dm * m_ncdm*1e3 / sqrt(m0/(1.1e7*mp)) * 2.85/3.2
+            if k > 0
+                Ω1 *= (1-q^2)
+            end
+        end
     elseif !isnothing(f)
-        Ω1 = N1 * m_ncdm * GeV_to_g * 0.26 * f / m0
-        Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * 0.26 * f * (1 - q^2)
-        println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
+        Ω1 = N1 * m_ncdm * GeV_to_g * Ω_dm * f / m0
+        if k > 0
+            Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * Ω_dm * f * (1 - q^2)
+        else
+            Ω1_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * Ω_dm * f
+        end
+        #println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
     elseif burst
-        Ω1 = Ω_ncdm * (1-q^2)
+        if k > 0
+            Ω1 = Ω_ncdm * (1-q^2)
+        else 
+            Ω1 = Ω_ncdm
+        end
+        f_check = Ω1 * m0 / (N1 * m_ncdm * GeV_to_g * Ω_dm)
+        if abs(1-f_check/f_comp) > 1e-3
+            throw(ArgumentError("Something with the PBH abundance is not right..."))
+        end
+        println("f_PBH: ",f_comp)
     else
-        Ω1 = Ω_ncdm * (1-q^2)/(1+q^2)
+        if k > 0
+            Ω1 = Ω_ncdm * (1-q^2)/(1+q^2)
+        else
+            Ω1 = Ω_ncdm
+        end
+        f_check = Ω1 * m0 / (N1 * m_ncdm * GeV_to_g * Ω_dm)
+        if abs(1-f_check/f_comp) > 1e-3
+            throw(ArgumentError("Something with the PBH abundance is not right..."))
+        end
+        println("f_PBH: ",f_comp)
+    end
+    
+    if bh_lifetime_estimate(m0,k=k,burst=burst,q=q) > 1 && f_comp > 1
+        println("Ω_PBH>1 today!")
     end
     
     println("Ω_ncdm ",Ω1)
 
     ff(x,a,b,c,d,e) = spectrum_redshift_approximation.(x,bh_lifetime_estimate(m0,a_bh,m_fin=q*m0),bh_lifetime_estimate(m0,a_bh,k=k,burst=burst,q=q),a,b,c,d,e)
     fit = optimize.curve_fit(ff,e/T0,Φ1*T0^3/(mp*g_to_GeV)^2,[1,1,1,1,1])
+    #fit = [[0,0,0,0,0]]
     Φ_fit = ff.(e/T0,fit[1]...)
     
     
     p_mean = trapz(e/T0,e/T0 .* Φ1)/trapz(e/T0,Φ1)
+    println("Mean momentum: ",p_mean)
     p_mean_approx = trapz(e/T0,e/T0  .* Φ_fit)/trapz(e/T0,Φ_fit)
     p_mean1_err = round(100*abs(1-p_mean_approx/p_mean),sigdigits=4)
     println("Deviation of mean momentum: ",p_mean1_err," %")
 
     p_rms = sqrt(trapz(e/T0,(e/T0).^2 .* Φ1)/trapz(e/T0,Φ1))
+    println("RMS momentum: ",p_rms)
     p_rms_approx = sqrt(trapz(e/T0,(e/T0).^2  .* Φ_fit)/trapz(e/T0,Φ_fit))
     p_rms1_err = round(100*abs(1-p_rms_approx/p_rms),sigdigits=4)
     println("Deviation of rms momentum: ",p_rms1_err," %")
@@ -148,15 +231,13 @@ for i=1:length(m0s)
         PyPlot.close()
     end
     
-    writedlm(string("Input/psd_",i,"_sc.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ1_class])
+    writedlm(string("Input/psd_",i,"_sc.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ1_class ./ (e_class/T0).^2])
     
-    if two_stages
+    if two_stages && k > 0
         
+        println()
         println("Second stage")
-        if use_fit
-            println("Two stages do not work with fit! Psd file is used...")
-        end
-    
+        
         T0 = T0/q
 
         t_end2 = bh_lifetime_estimate(m0,a_bh,k=k,burst=burst,q=q)
@@ -168,6 +249,10 @@ for i=1:length(m0s)
         #    a_end2_approx = 3.336e-31 * 12.567^(k/2) * q^(3/2+k) * (m0/mp)^(3/2+k) * sqrt(3)
         #end
         #println("aev_2 ",abs(1-a_end2/a_end2_approx))
+        if md_comp
+            a_end2 = a_end2*(9/16)^(1/4)
+        end
+
 
         T_ncdm2 = T0*GeV_to_K/2.7255*a_end2
         println("T_ncdm2 ",T_ncdm2)
@@ -180,10 +265,11 @@ for i=1:length(m0s)
 
 
         Φ1, Φ2 = spectrum_redshift(e,m0,s,g,a_bh,
-            t_start=t_start,t_end=t_end2,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true)
+            t_start=t_start,t_end=t_end2,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true,md=md_comp)
         Φ1_class, Φ2_class = spectrum_redshift(e_class,m0,s,g,a_bh,
-            t_start=t_start,t_end=t_end2,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true)
-
+            t_start=t_start,t_end=t_end2,go=false,k=k,burst=burst,q=q,instant=false,n_steps=1000,split_flux=true,md=md_comp)
+        
+        
         N2 = trapz(e,Φ2)
         #if burst
         #    N2_approx = 2.85e-2*m0^2/mp^2*q^2
@@ -193,37 +279,52 @@ for i=1:length(m0s)
         #Ntot_approx = 2.85e-2*m0^2/mp^2*(1+q^2)
 
         if !isnothing(β)
-            Ω2 = N2 * m_ncdm * GeV_to_g * 0.26 * f_βm(β,m0) / m0
-            Ω2_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * 0.26 * f_βm(β,m0) * q^2
-            if !burst
-                Ω2_approx *= 2
+            if β < β_c
+                Ω2 = N2 * m_ncdm * GeV_to_g * 0.26 * f_βm(β,m0) / m0
+                Ω2_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * 0.26 * f_βm(β,m0) * q^2
+                if !burst
+                    Ω2_approx *= 2
+                end
+                #println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
+            else
+                Ω2 = Ω_dm * m_ncdm*1e3 / sqrt(m0/(1.1e7*mp)) * 2.85/3.2 * q^2
+                if !burst
+                    Ω2 *= 2
+                end
             end
-            println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
         elseif !isnothing(f)
             Ω2 = N2 * m_ncdm * GeV_to_g * 0.26 * f / m0
             Ω2_approx = 2.85e-2 * m0 * m_ncdm*GeV_to_g / mp^2 * 0.26 * f * q^2
             if !burst
                 Ω2_approx *= 2
             end
-            println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
+            #println("Deviation of Ω_ncdm ",round(100*abs(1-Ω1_approx/Ω1),sigdigits=4)," %")
         elseif burst
             Ω2 = Ω_ncdm * q^2
+            #Ω2 = Ω_ncdm
         else
             Ω2 = 2 * Ω_ncdm * q^2/(1+q^2)
+            #Ω2 = Ω_ncdm
         end
 
         println("Ω_ncdm2 ",Ω2)
+        
     
         ff(x,a,b,c,d,e) = spectrum_redshift_approximation.(x,bh_lifetime_estimate(m0,a_bh,m_fin=q*m0),bh_lifetime_estimate(m0,a_bh,k=k,burst=burst,q=q),a,b,c,d,e)
         fit2 = optimize.curve_fit(ff,e/T0,Φ2*T0^3/(mp*g_to_GeV)^2,[1,1,1,1,1])
+        #fit2 = [[0,0,0,0,0]]
         Φ_fit2 = ff.(e/T0,fit2[1]...)
 
         p_mean2 = trapz(e/T0,e/T0 .* Φ2)/trapz(e/T0,Φ2)
+        println("Mean momentum: ",p_mean2)
+        #println(a_end2/(Ω_r_fid/Ω_m_fid))
+        #println(1e4*a_end2/(Ω_r_fid/Ω_m_fid)*T0*p_mean2)
         p_mean_approx2 = trapz(e/T0,e/T0  .* Φ_fit2)/trapz(e/T0,Φ_fit2)
         p_mean_err2 = round(100*abs(1-p_mean_approx2/p_mean2),sigdigits=4)
         println("Deviation of mean momentum: ",p_mean_err2," %")
 
         p_rms2 = sqrt(trapz(e/T0,(e/T0).^2 .* Φ2)/trapz(e/T0,Φ2))
+        println("RMS momentum: ",p_rms2)
         p_rms_approx2 = sqrt(trapz(e/T0,(e/T0).^2  .* Φ_fit2)/trapz(e/T0,Φ_fit2))
         p_rms_err2 = round(100*abs(1-p_rms_approx2/p_rms2),sigdigits=4)
         println("Deviation of rms momentum: ",p_rms_err2," %")
@@ -254,7 +355,7 @@ for i=1:length(m0s)
             PyPlot.close()
         end
         
-        writedlm(string("Input/psd_",i,"_mb.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ2_class])
+        writedlm(string("Input/psd_",i,"_mb.dat"),[e_class/T0 (T0^3/(mp*g_to_GeV)^2)*Φ2_class ./ (e_class/T0).^2])
     
         push!(parameters,"NNCDM"=>"2")
         push!(parameters,"DEGNCDM"=>"1,1")

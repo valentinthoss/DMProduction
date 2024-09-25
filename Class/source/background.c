@@ -1259,8 +1259,8 @@ int background_ncdm_distribution(
 
   /** - b) deal now with case of reading analytical function */
   else{
-    *f0 = param[n_ncdm*5+0]*(pow(q,-1) + param[n_ncdm*5+1] + param[n_ncdm*5+2]*pow(q,1)) / (exp(param[n_ncdm*5+3]*q) + param[n_ncdm*5+4]);
-    //*f0 = param[n_ncdm*5+0]*(pow(q,-1) + param[n_ncdm*5+1] + param[n_ncdm*5+2]*pow(q,1)) / (param[n_ncdm*5+3]+param[n_ncdm*5+4]*pow(q,6));
+    *f0 = param[n_ncdm*5+0]*(pow(q,-1) + param[n_ncdm*5+1] + param[n_ncdm*5+2]*pow(q,1)) / (exp(param[n_ncdm*5+3]*q) + param[n_ncdm*5+4]); //Without burst
+    //*f0 = param[n_ncdm*5+0]*(pow(q,-1) + param[n_ncdm*5+1] + param[n_ncdm*5+2]*pow(q,1)) / (param[n_ncdm*5+3]+param[n_ncdm*5+4]*pow(q,6)); //With burst
   }
 
   return _SUCCESS_;
